@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run pytest tests/test_version.py -v)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
