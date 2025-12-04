@@ -35,6 +35,7 @@ class LocatingInstructions:
     target_columns: List[str]  # 目标列描述，如 ["2023年Q1", "2023年Q2"]
     coordinate_hints: Dict[str, str]  # 坐标提示，如 {"row_index": "2-3", "col_index": "1-2"}
     extraction_type: str  # 提取类型： "single_cell", "row_data", "column_data", "region_data"
+    reasoning_trace: str  # LLM 的推理过程，用于调试和验证
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
@@ -42,7 +43,8 @@ class LocatingInstructions:
             "target_rows": self.target_rows,
             "target_columns": self.target_columns,
             "coordinate_hints": self.coordinate_hints,
-            "extraction_type": self.extraction_type
+            "extraction_type": self.extraction_type,
+            "reasoning_trace": self.reasoning_trace
         }
 
 
