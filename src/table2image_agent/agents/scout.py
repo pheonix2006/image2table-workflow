@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from ..interfaces import ScoutAgent, VisualSummary
+from ..config import get_scout_config
 
 # 加载环境变量
 load_dotenv()
@@ -23,21 +24,20 @@ class OpenAIScoutAgent(ScoutAgent):
     """基于 OpenAI VLM 的视觉侦察兵实现"""
 
     def __init__(self):
-        """初始化 OpenAI 客户端"""
-        api_key = os.getenv("OPENAI_API_KEY")
-        base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-        model_name = os.getenv("OPENAI_MODEL", "gpt-4o")  # 新增模型名称配置
+        """初始化侦察兵"""
+        # 使用配置管理器获取配置
+        config = get_scout_config()
 
-        if not api_key:
-            raise ValueError("未找到 OPENAI_API_KEY 环境变量")
+        # 导入 OpenAI 库（延迟导入，避免未安装时的错误）
+        try:
+            from openai import OpenAI
+        except ImportError:
+            raise ImportError("需要安装 openai 库: uv add openai")
 
-        self.client = OpenAI(
-            api_key=api_key,
-            base_url=base_url
-        )
+        self.client = OpenAI(api_key=config.api_key, base_url=config.base_url)
+        self.model_name = config.model_name
 
-        # 保存模型名称用于后续 API 调用
-        self.model_name = model_name
+        print(f"🧠 侦察兵初始化完成，使用模型: {config.model_name}")
 
         # 系统提示词：专注于结构分析
         self.system_prompt = """你是一名专业的表格结构分析师（Structural Analyst）。
