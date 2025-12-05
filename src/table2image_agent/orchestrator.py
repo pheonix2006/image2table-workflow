@@ -5,6 +5,7 @@ from .interfaces import (
     ScoutAgent, PlannerAgent, SniperAgent, CoderAgent,
     VisualSummary, LocatingInstructions, DataPacket, Answer
 )
+from .logger import tracing, trace_step, log_custom
 
 
 class Table2ImageOrchestrator:
@@ -26,6 +27,7 @@ class Table2ImageOrchestrator:
         self.sniper = sniper
         self.coder = coder
 
+    @trace_step("Orchestrator")
     def process(self, image_path: str, question: str) -> Answer:
         """
         执行完整的工作流
@@ -41,6 +43,10 @@ class Table2ImageOrchestrator:
             ValueError: 当输入参数无效时
             RuntimeError: 当处理过程中出现错误时
         """
+        # 初始化追踪会话
+        trace_id = tracing.init_trace()
+        log_custom("Orchestrator", f"开始处理任务 - 图片: {image_path}, 问题: {question}", image_path=image_path, question=question)
+
         if not image_path:
             raise ValueError("图像路径不能为空")
         if not question:
@@ -67,10 +73,15 @@ class Table2ImageOrchestrator:
             answer = self.coder.execute(packet, question)
             print(f"   ✅ 计算完成：答案是 {answer.result}")
 
+            # 清除追踪会话
+            tracing.clear_trace()
             return answer
 
         except Exception as e:
+            log_custom("Orchestrator", f"工作流执行失败: {e}", error=str(e))
             print(f"❌ 工作流执行失败: {e}")
+            # 确保在异常情况下也清除追踪会话
+            tracing.clear_trace()
             raise RuntimeError(f"处理失败: {e}")
 
     def get_workflow_info(self) -> Dict[str, Any]:

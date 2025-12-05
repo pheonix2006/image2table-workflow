@@ -15,6 +15,7 @@ from openai import OpenAI
 
 from ..interfaces import ScoutAgent, VisualSummary
 from ..config import get_scout_config
+from ..logger import trace_step
 
 # 加载环境变量
 load_dotenv()
@@ -120,6 +121,7 @@ class OpenAIScoutAgent(ScoutAgent):
         except json.JSONDecodeError as e:
             raise ValueError(f"JSON 解析失败: {e}\n原始内容: {content}")
 
+    @trace_step("Scout")
     def scan(self, image_path: str) -> VisualSummary:
         """
         扫描图像，生成视觉摘要

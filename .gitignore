@@ -69,7 +69,6 @@ data/processed/
 data/example_photo/question
 
 # Test scripts (temporary)
-test_*.py
 test_minimal.py
 test_simple.py
 test_real_api.py

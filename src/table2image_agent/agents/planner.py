@@ -9,6 +9,7 @@ from typing import Dict, Any, List
 
 from ..interfaces import VisualSummary, LocatingInstructions, PlannerAgent
 from ..config import get_planner_config
+from ..logger import trace_step
 
 
 class OpenAIPlannerAgent(PlannerAgent):
@@ -30,6 +31,7 @@ class OpenAIPlannerAgent(PlannerAgent):
 
         print(f"🧠 指挥官初始化完成，使用模型: {config.model_name}")
 
+    @trace_step("Planner")
     def plan(self, question: str, summary: VisualSummary) -> LocatingInstructions:
         """
         基于问题和视觉摘要生成定位指令
