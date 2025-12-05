@@ -74,6 +74,13 @@ test_simple.py
 test_real_api.py
 test_specific_function.py
 test_final_integration.py
+comprehensive_log_analysis.py
+correct_real_api_test.py
+final_test_report.py
+simple_log_verification.py
+test_log_parsing_fix.py
+verify_tracing.py
+test_tracing_system_real_api.py
 
 # Configuration files (keeping .env.example)
 .env.local
@@ -89,3 +96,11 @@ spec/draft_*.md
 *.pyd
 .Python
 *.whl
+
+# Log files
+logs/*.jsonl
+logs/*.log
+logs/trace_*.jsonl
+
+# Claude AI settings
+.claude/settings.local.json
