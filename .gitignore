@@ -82,10 +82,12 @@ test_log_parsing_fix.py
 verify_tracing.py
 test_tracing_system_real_api.py
 
-# Configuration files (keeping .env.example)
+# Configuration files (NEVER commit any .env files)
+.env
 .env.local
 .env.development
 .env.production
+.env.example
 
 # Spec drafts
 spec/draft_*.md
