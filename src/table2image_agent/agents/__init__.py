@@ -2,5 +2,12 @@
 
 from .scout import OpenAIScoutAgent
 from .planner import OpenAIPlannerAgent, MockPlannerAgent
+from .sniper import OpenAISniperAgent, MockSniperAgent
 
-__all__ = ["OpenAIScoutAgent", "OpenAIPlannerAgent", "MockPlannerAgent"]
+__all__ = [
+    "OpenAIScoutAgent",
+    "OpenAIPlannerAgent",
+    "MockPlannerAgent",
+    "OpenAISniperAgent",
+    "MockSniperAgent"
+]

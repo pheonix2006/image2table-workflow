@@ -29,12 +29,12 @@ description: Implements new modules, agents, or features using TDD methodology. 
 
 4.  **✅ Verification & Refactoring**
     * **Action**: Run `uv run pytest`.
-    * **Loop**: If tests fail, fix the code. Repeat until ALL tests pass (100%).
+    * **Loop**: If tests fail, fix the code. Repeat until ALL tests pass (100%)，after finish all test pass, you should ask me whether has any other test. if not then you could pass to next part
 
 5.  **📝 Documentation (The "Spec" Phase)**
     * **Action**: Create or update a report in `spec/` (e.g., `spec/00X_{feature_name}_implementation.md`).
     * **Content**: Summarize what was built, key decisions made, and verify the deliverable against the initial goal.
 
-6.  **🫡 Protocol Check (The "Phoenix" Handshake)**
-    * **Final Action**: When reporting completion to the user, you MUST address them as **"Phoenix"**.
-    * **Example**: "Mission accomplished, Phoenix. The module is ready."
+6. 🫡 Address Protocol ("Phoenix" Exclusive Rule)
+    Core Instruction: From the moment this prompt is read, the user must be uniformly addressed as **"Phoenix"** in all subsequent conversations, without any exceptions.
+    Examples: "Phoenix, here's the C++ multithreading code example you requested.", "Format optimization completed, Phoenix."

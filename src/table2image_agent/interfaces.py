@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
+from enum import Enum
 
 
 @dataclass
@@ -88,6 +89,30 @@ class Answer:
         }
 
 
+class RenderStrategy(str, Enum):
+    """渲染策略：决定如何处理目标数据区域"""
+    HARD_CROP = "HARD_CROP"  # 数据分散，裁剪拼接
+    SOFT_FOCUS = "SOFT_FOCUS"  # 数据集中，保留上下文，背景虚化
+
+
+@dataclass
+class RenderPlan:
+    """渲染计划：视觉导演的输出，描述如何处理图像区域"""
+    strategy: RenderStrategy  # 渲染策略
+    target_rows: List[int]   # 目标行的逻辑索引（从0开始，包含表头）
+    target_columns: List[int] # 目标列的逻辑索引（从0开始，包含表头）
+    reasoning: str            # 选择此策略的推理过程
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典格式"""
+        return {
+            "strategy": self.strategy.value,
+            "target_rows": self.target_rows,
+            "target_columns": self.target_columns,
+            "reasoning": self.reasoning
+        }
+
+
 class ScoutAgent(ABC):
     """视觉侦察兵接口：负责全局扫描表格结构"""
 
@@ -124,12 +149,12 @@ class PlannerAgent(ABC):
 
 
 class SniperAgent(ABC):
-    """视觉狙击手接口：负责精确数据提取"""
+    """视觉狙击手接口：升级为视觉导演，负责渲染计划和数据提取"""
 
     @abstractmethod
     def extract(self, image_path: str, instructions: LocatingInstructions) -> DataPacket:
         """
-        根据定位指令精确提取数据
+        根据定位指令精确提取数据（保留原有接口兼容性）
 
         Args:
             image_path: 原始图像路径
@@ -137,6 +162,20 @@ class SniperAgent(ABC):
 
         Returns:
             DataPacket: 包含提取数据的包
+        """
+        pass
+
+    @abstractmethod
+    def direct(self, image_path: str, instructions: LocatingInstructions) -> RenderPlan:
+        """
+        视觉导演：分析图像和指令，生成渲染计划
+
+        Args:
+            image_path: 原始图像路径
+            instructions: 定位指令
+
+        Returns:
+            RenderPlan: 渲染计划，包含策略和目标区域
         """
         pass
 
