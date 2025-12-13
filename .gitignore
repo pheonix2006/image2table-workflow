@@ -106,3 +106,28 @@ logs/trace_*.jsonl
 
 # Claude AI settings
 .claude/settings.local.json
+
+# 实验数据文件和临时输出
+data/bug_comparison.png
+data/calculated_crop_0.png
+data/coordinate_system_visualized.png
+data/debug_coordinates.png
+data/manual_crop_test.png
+data/render_demo/
+data/rendered/
+data/row14_visualization.png
+data/target_regions_visualized.png
+data/wikitq_demo/
+data/wikitq_processed/
+
+# 实验结果文档
+render_effect_comparison.md
+
+# 调试脚本（临时）
+scripts/debug_*.py
+scripts/demonstrate_*.py
+scripts/final_*.py
+scripts/sample_*.py
+scripts/test_*.py
+scripts/*_test.py
+scripts/*_demo.py
