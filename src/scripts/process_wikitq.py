@@ -8,6 +8,7 @@
 
 import os
 import sys
+import json
 import pandas as pd
 from pathlib import Path
 
@@ -22,7 +23,7 @@ def main():
     """主处理函数"""
     # 文件路径
     csv_path = "data/example_tablequestion/wiki_table_100_samples.csv"
-    output_dir = "data/processed"
+    output_dir = "data/layout_fix_demo"
 
     print("🚀 开始处理 WikiTQ 数据集...")
     print(f"📁 输入文件: {csv_path}")
@@ -75,8 +76,18 @@ def main():
                 sample_id=i+1
             )
 
+            # 生成布局文件（使用修复后的 _generate_table_layout 方法）
+            table_data = renderer.parse_csv_table_array(table_array_str)
+            layout = renderer._generate_table_layout(table_data)
+
+            # 保存布局文件
+            layout_path = os.path.join(output_dir, f"sample_{i+1}_layout.json")
+            with open(layout_path, 'w', encoding='utf-8') as f:
+                json.dump(layout, f, ensure_ascii=False, indent=2)
+
             print(f"   ✅ 图片: {result['image_path']}")
             print(f"   ✅ 元数据: 包含问题、答案和 Markdown 内容")
+            print(f"   ✅ 布局: 使用真实Bbox测量的坐标信息")
 
             success_count += 1
 

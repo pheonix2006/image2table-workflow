@@ -386,3 +386,164 @@ class TableRenderer:
             "columns": len(data[0]) if data[0] else 0,
             "total_cells": sum(len(row) for row in data)
         }
+
+    def _generate_table_layout(self, data: List[List[str]]) -> dict:
+        """
+        基于真实Bbox测量生成表格布局信息
+
+        Args:
+            data: 表格数据
+
+        Returns:
+            dict: 包含行、列、图片尺寸和表格边界的布局信息
+        """
+        if not data:
+            raise ValueError("表格数据不能为空")
+
+        # 创建 DataFrame
+        df = pd.DataFrame(data)
+
+        # 动态计算合适的图片尺寸
+        optimal_size = self._calculate_optimal_size(data)
+
+        # 创建图表
+        fig, ax = plt.subplots(figsize=optimal_size, dpi=self.dpi)
+        ax.axis('off')  # 隐藏坐标轴
+
+        # 动态计算列宽
+        num_columns = len(df.columns)
+        num_rows = len(data)
+
+        # 根据内容长度调整列宽
+        col_widths = self._calculate_column_widths(data, optimal_size[0])
+
+        # 创建表格
+        table = ax.table(
+            cellText=df.values,
+            colLabels=df.columns,
+            cellLoc='center',
+            loc='center',
+            colWidths=col_widths
+        )
+
+        # 设置表格样式
+        table.auto_set_font_size(True)
+
+        # 动态调整字体大小
+        font_size = self._calculate_font_size(data, optimal_size)
+        table.set_fontsize(font_size)
+
+        # 动态调整表格缩放
+        scale_factor = self._calculate_scale_factor(data, optimal_size)
+        table.scale(scale_factor[0], scale_factor[1])
+
+        # 设置标题
+        title = "Generated Table Data"
+        title_font_size = max(font_size + 2, 12)  # 标题字体稍大
+        ax.set_title(title, fontsize=title_font_size, pad=20, fontweight='bold')
+
+        # 【关键步骤】强制渲染触发：在获取坐标前，必须调用 fig.canvas.draw()
+        # 迫使 Matplotlib 完成由于 Text Wrap 导致的布局重排
+        fig.canvas.draw()
+
+        # 获取图片总尺寸
+        fig_width_inch, fig_height_inch = fig.get_size_inches()
+        image_width = int(fig_width_inch * self.dpi)
+        image_height = int(fig_height_inch * self.dpi)
+
+        # 初始化行和列信息
+        rows_info = []
+        columns_info = []
+
+        # 获取真实 Bbox 并处理行信息
+        row_heights = {}  # 记录每行的最大高度
+        row_y_positions = {}  # 记录每行的最小Y位置（最靠上的顶边）
+
+        # 遍历所有单元格获取真实 Bbox
+        for (row_idx, col_idx), cell in table.get_celld().items():
+            # 获取单元格的窗口范围（像素坐标）
+            bbox = cell.get_window_extent(renderer=fig.canvas.get_renderer())
+
+            # 转换坐标系：Matplotlib 原点在左下角，我们需要原点在左上角
+            # Layout_Y = Image_Total_Height - Bbox.y1 (Top_Edge)
+            layout_y = image_height - bbox.y1
+            layout_height = bbox.height
+
+            # 更新行信息：取该行所有单元格中 height 的最大值
+            if row_idx not in row_heights:
+                row_heights[row_idx] = layout_height
+            else:
+                row_heights[row_idx] = max(row_heights[row_idx], layout_height)
+
+            # 更新行Y位置：取该行所有单元格中 y 的最小值（即最靠上的顶边）
+            if row_idx not in row_y_positions:
+                row_y_positions[row_idx] = layout_y
+            else:
+                row_y_positions[row_idx] = min(row_y_positions[row_idx], layout_y)
+
+        # 生成行信息
+        for row_idx in range(num_rows):
+            rows_info.append({
+                "index": row_idx,
+                "y": row_y_positions[row_idx],
+                "height": row_heights[row_idx]
+            })
+
+        # 处理列信息
+        col_x_positions = {}
+        col_widths = {}
+
+        for (row_idx, col_idx), cell in table.get_celld().items():
+            if row_idx == 0:  # 只处理第一行的列信息
+                bbox = cell.get_window_extent(renderer=fig.canvas.get_renderer())
+                layout_x = bbox.x0  # X坐标不需要转换
+
+                # 更新列信息
+                if col_idx not in col_x_positions:
+                    col_x_positions[col_idx] = layout_x
+                    col_widths[col_idx] = bbox.width
+
+        # 生成列信息（按列索引排序）
+        for col_idx in range(num_columns):
+            if col_idx in col_x_positions:
+                columns_info.append({
+                    "index": col_idx,
+                    "x": col_x_positions[col_idx],
+                    "width": col_widths[col_idx]
+                })
+
+        # 计算表格边界
+        if rows_info and columns_info:
+            min_x = min(col['x'] for col in columns_info)
+            max_x = max(col['x'] + col['width'] for col in columns_info)
+            min_y = min(row['y'] for row in rows_info)
+            max_y = max(row['y'] + row['height'] for row in rows_info)
+
+            table_bounds = {
+                "x": min_x,
+                "y": min_y,
+                "width": max_x - min_x,
+                "height": max_y - min_y
+            }
+        else:
+            table_bounds = {"x": 0, "y": 0, "width": 0, "height": 0}
+
+        # 关闭图表
+        plt.close(fig)
+
+        # 返回布局信息
+        return {
+            "rows": rows_info,
+            "columns": columns_info,
+            "image_size": {
+                "width": image_width,
+                "height": image_height
+            },
+            "table_bounds": table_bounds,
+            "metadata": {
+                "num_rows": num_rows,
+                "num_columns": num_columns,
+                "dpi": self.dpi,
+                "generated_at": pd.Timestamp.now().isoformat()
+            }
+        }
