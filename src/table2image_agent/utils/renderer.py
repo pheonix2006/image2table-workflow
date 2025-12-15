@@ -29,7 +29,13 @@ class TableRenderer:
         self.min_height = 6   # 最小高度（英寸）
         self.max_width = 20  # 最大宽度（英寸）
         self.max_height = 16  # 最大高度（英寸）
-        self.cell_padding = 0.1  # 单元格内边距（英寸）
+        self.cell_padding = 0.05  # 单元格内边距（英寸）
+
+        # Auto-Fit 模式参数（REF-002 规范）
+        self.AUTOFIT_FONT_SIZE = 12  # 固定字号：12pt
+        self.AUTOFIT_CELL_PADDING = 0.05  # 固定内边距：0.05inch
+        self.AUTOFIT_MAX_COLUMN_CHARS = 50  # 最大列宽限制：50字符
+        self.AUTOFIT_CHAR_WIDTH_FACTOR = 0.06  # 字符宽度系数：0.06inch
 
     def render_image(self, data: List[List[str]], output_path: str) -> None:
         """
@@ -547,3 +553,203 @@ class TableRenderer:
                 "generated_at": pd.Timestamp.now().isoformat()
             }
         }
+
+    # ===== Auto-Fit 模式方法 (REF-002 实现) =====
+
+    def render_image_autofit(self, data: List[List[str]], output_path: str) -> None:
+        """
+        Auto-Fit 模式渲染：固定字号和间距，内容决定图片尺寸
+
+        Args:
+            data: 二维列表形式的表格数据
+            output_path: 输出图片路径
+        """
+        if not data:
+            raise ValueError("表格数据不能为空")
+
+        # 确保输出目录存在
+        output_dir = Path(output_path).parent
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Step 1: Bottom-Up 计算画布尺寸
+        canvas_width, canvas_height = self._autofit_calculate_canvas_size(data)
+
+        # Step 2: 创建图表（使用计算出的"完美尺寸"）
+        fig, ax = plt.subplots(figsize=(canvas_width, canvas_height), dpi=self.dpi)
+        ax.axis('off')  # 隐藏坐标轴
+
+        # Step 3: 创建 DataFrame
+        df = pd.DataFrame(data)
+
+        # Step 4: 计算列宽（使用相对比例）
+        col_widths = self._autofit_calculate_column_widths_relative(data)
+
+        # Step 5: 创建表格
+        table = ax.table(
+            cellText=df.values,
+            colLabels=df.columns,
+            cellLoc='center',
+            loc='center',
+            colWidths=col_widths
+        )
+
+        # Step 6: 设置固定样式（Auto-Fit 核心特性）
+        table.set_fontsize(self.AUTOFIT_FONT_SIZE)  # 固定字号 12pt
+        table.scale(1.0, 1.0)  # 不缩放，使用真实尺寸
+
+        # Auto-Fit 模式下，我们通过固定字号和比例来确保内边距的一致性
+
+        # Step 7: 保存图片
+        plt.savefig(
+            output_path,
+            format='png',
+            bbox_inches='tight',
+            facecolor='white',
+            edgecolor='none'
+        )
+        plt.close()
+
+        print(f"🖼️ Auto-Fit 表格图片已生成: {output_path}")
+        print(f"   📐 自适应尺寸: {canvas_width:.1f} x {canvas_height:.1f} 英寸")
+        print(f"   📏 列数: {len(data[0])}, 行数: {len(data)}")
+        print(f"   🔤 固定字号: {self.AUTOFIT_FONT_SIZE}pt")
+        print(f"   📦 固定内边距: {self.AUTOFIT_CELL_PADDING}inch")
+
+    def _autofit_calculate_column_widths(self, data: List[List[str]]) -> List[float]:
+        """
+        Bottom-Up 列宽计算：基于内容长度和最大字符限制
+
+        Args:
+            data: 表格数据
+
+        Returns:
+            List[float]: 每列的宽度比例
+        """
+        if not data or not data[0]:
+            return [1.0]
+
+        num_cols = len(data[0])
+        col_widths = []
+
+        for col_idx in range(num_cols):
+            # 计算该列的最大字符数
+            max_chars_in_col = 0
+            for row in data:
+                if col_idx < len(row):
+                    cell_length = len(str(row[col_idx]))
+                    # 考虑换行：如果超过最大字符数，按字符数换行
+                    wrapped_chars = min(cell_length, self.AUTOFIT_MAX_COLUMN_CHARS)
+                    max_chars_in_col = max(max_chars_in_col, wrapped_chars)
+
+            # 转换为英寸宽度
+            col_width_inch = max_chars_in_col * self.AUTOFIT_CHAR_WIDTH_FACTOR
+            col_widths.append(col_width_inch)
+
+        # 计算总宽度
+        total_width = sum(col_widths)
+        if total_width > 0:
+            # 转换为相对比例
+            col_widths = [w / total_width for w in col_widths]
+
+        return col_widths
+
+    def _autofit_calculate_canvas_size(self, data: List[List[str]]) -> tuple[float, float]:
+        """
+        Bottom-Up 画布尺寸计算：基于内容自适应
+
+        Args:
+            data: 表格数据
+
+        Returns:
+            tuple[float, float]: (宽度, 高度) 英寸
+        """
+        if not data:
+            return (4.0, 3.0)  # 默认最小尺寸
+
+        # 计算列的绝对宽度
+        col_absolute_widths = []
+        cell_fixed_padding = 0.1  # 每个格子固定边距
+
+        for col_idx in range(len(data[0]) if data else 0):
+            content_width = 0
+            for row in data:
+                if col_idx < len(row):
+                    cell_length = len(str(row[col_idx]))
+                    wrapped_chars = min(cell_length, self.AUTOFIT_MAX_COLUMN_CHARS)
+                    content_width = max(content_width, wrapped_chars * self.AUTOFIT_CHAR_WIDTH_FACTOR)
+
+            col_width_inch = content_width + cell_fixed_padding
+            col_absolute_widths.append(col_width_inch)
+
+        total_content_width = sum(col_absolute_widths)
+
+        # 优化边距：减少不必要的留白
+        canvas_width = total_content_width + 0.6  # 左右边距各0.3英寸
+
+        # 模拟计算行高
+        num_rows = len(data)
+        # 基础行高：字体12pt + 上下内边距
+        base_row_height = 0.12 + 2 * self.AUTOFIT_CELL_PADDING  # 0.22inch
+        canvas_height = num_rows * base_row_height + 0.6  # 上下边距各0.3英寸
+
+        # 应用最小尺寸限制，但允许大表格更大
+        canvas_width = max(canvas_width, 4.0)
+        canvas_height = max(canvas_height, 3.0)
+
+        return (canvas_width, canvas_height)
+
+    def _autofit_calculate_column_widths_relative(self, data: List[List[str]]) -> List[float]:
+        """
+        计算列的相对宽度（比例值，0-1之间）
+        每个单元格都有固定的左右边距，而不是比例值
+
+        Args:
+            data: 表格数据
+
+        Returns:
+            List[float]: 每列的相对宽度比例
+        """
+        if not data or not data[0]:
+            return [1.0]
+
+        num_cols = len(data[0])
+        col_absolute_widths = []
+
+        # 每个格子的固定左右边距（英寸）
+        cell_fixed_padding = 0.1  # 每边0.05英寸，总共0.1英寸
+
+        for col_idx in range(num_cols):
+            # 计算该列内容所需的最小宽度
+            content_width = 0
+            for row in data:
+                if col_idx < len(row):
+                    cell_length = len(str(row[col_idx]))
+                    # 考虑换行：如果超过最大字符数，按字符数换行
+                    wrapped_chars = min(cell_length, self.AUTOFIT_MAX_COLUMN_CHARS)
+                    # 内容宽度 = 字符数 * 字符宽度系数
+                    content_width = max(content_width, wrapped_chars * self.AUTOFIT_CHAR_WIDTH_FACTOR)
+
+            # 总列宽 = 内容宽度 + 固定边距
+            col_width_inch = content_width + cell_fixed_padding
+            col_absolute_widths.append(col_width_inch)
+
+        # 转换为相对比例
+        total_width = sum(col_absolute_widths)
+        if total_width > 0:
+            col_relative_widths = [w / total_width for w in col_absolute_widths]
+        else:
+            col_relative_widths = [1.0 / num_cols] * num_cols
+
+        return col_relative_widths
+
+    def _get_autofit_font_size(self, data: List[List[str]]) -> int:
+        """
+        获取 Auto-Fit 模式的固定字号
+
+        Args:
+            data: 表格数据（忽略，Auto-Fit 模式下字号恒定）
+
+        Returns:
+            int: 固定字号 12pt
+        """
+        return self.AUTOFIT_FONT_SIZE
