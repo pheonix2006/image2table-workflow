@@ -120,6 +120,9 @@ data/target_regions_visualized.png
 data/wikitq_demo/
 data/wikitq_processed/
 data/layout_fix_demo/
+data/autofit_demo/
+sample_*.png
+sample_*.json
 
 # 实验结果文档
 render_effect_comparison.md
