@@ -1,0 +1,54 @@
+Table2Image 真实数据工作流测试摘要
+==================================================
+测试时间: 2025-12-22 13:00:14
+样本数量: 5
+
+=== 执行统计 ===
+Scout Agent 成功率: 5/5 (100.0%)
+Planner Agent 成功率: 5/5 (100.0%)
+
+=== 性能统计 ===
+Scout Agent 平均耗时: 3.48s
+Planner Agent 平均耗时: 63.18s
+
+=== 详细结果 ===
+
+1. 样本 #1
+   问题: in what city did piotr's last 1st place finish occur?
+   期望答案: Bangkok, Thailand
+   Scout: ✅ 成功
+   Planner: ✅ 成功
+   Scout耗时: 3.44s
+   Planner耗时: 64.47s
+
+2. 样本 #2
+   问题: which team won previous to crettyard?
+   期望答案: Wolfe Tones
+   Scout: ✅ 成功
+   Planner: ✅ 成功
+   Scout耗时: 2.23s
+   Planner耗时: 82.02s
+
+3. 样本 #3
+   问题: how many more passengers flew to los angeles than to saskatoon from manzanillo airport in 2013?
+   期望答案: 12,467
+   Scout: ✅ 成功
+   Planner: ✅ 成功
+   Scout耗时: 2.24s
+   Planner耗时: 60.78s
+
+4. 样本 #4
+   问题: who was the opponent in the first game of the season?
+   期望答案: Derby County
+   Scout: ✅ 成功
+   Planner: ✅ 成功
+   Scout耗时: 3.42s
+   Planner耗时: 49.78s
+
+5. 样本 #5
+   问题: how many people stayed at least 3 years in office?
+   期望答案: 4
+   Scout: ✅ 成功
+   Planner: ✅ 成功
+   Scout耗时: 6.05s
+   Planner耗时: 58.87s
