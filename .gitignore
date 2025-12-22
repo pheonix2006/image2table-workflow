@@ -126,6 +126,11 @@ sample_*.json
 
 # 实验结果文档
 render_effect_comparison.md
+workflow_analysis_report.md
+
+# 工作流测试文件
+test_workflow_real_data.py
+test_results_sample_*.json
 
 # 调试脚本（临时）
 scripts/debug_*.py
