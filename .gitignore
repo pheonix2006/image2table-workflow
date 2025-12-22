@@ -124,13 +124,16 @@ data/autofit_demo/
 sample_*.png
 sample_*.json
 
-# 实验结果文档
+# 实验结果文档 (长期保留)
 render_effect_comparison.md
 workflow_analysis_report.md
 
-# 工作流测试文件
+# 工作流测试文件 (不保留在git中)
 test_workflow_real_data.py
 test_results_sample_*.json
+
+# 观测数据目录 (长期保留)
+observational_data/
 
 # 调试脚本（临时）
 scripts/debug_*.py
