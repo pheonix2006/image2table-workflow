@@ -33,9 +33,9 @@ class TableRenderer:
 
         # Auto-Fit 模式参数（REF-002 规范）
         self.AUTOFIT_FONT_SIZE = 12  # 固定字号：12pt
-        self.AUTOFIT_CELL_PADDING = 0.05  # 固定内边距：0.05inch
+        self.AUTOFIT_CELL_PADDING = 0.1  # 固定内边距：0.05inch
         self.AUTOFIT_MAX_COLUMN_CHARS = 50  # 最大列宽限制：50字符
-        self.AUTOFIT_CHAR_WIDTH_FACTOR = 0.06  # 字符宽度系数：0.06inch
+        self.AUTOFIT_CHAR_WIDTH_FACTOR = 0.1  # 字符宽度系数：0.043inch
 
     def render_image(self, data: List[List[str]], output_path: str) -> None:
         """
@@ -554,15 +554,21 @@ class TableRenderer:
             }
         }
 
+
     # ===== Auto-Fit 模式方法 (REF-002 实现) =====
 
-    def render_image_autofit(self, data: List[List[str]], output_path: str) -> None:
+    def render_image_autofit(self, data: List[List[str]], output_path: str, autocrop: bool = True) -> dict:
         """
         Auto-Fit 模式渲染：固定字号和间距，内容决定图片尺寸
+        返回包含真实坐标的布局信息
 
         Args:
             data: 二维列表形式的表格数据
             output_path: 输出图片路径
+            autocrop: 是否自动裁剪白色边距（默认True）
+
+        Returns:
+            dict: 真实坐标布局信息
         """
         if not data:
             raise ValueError("表格数据不能为空")
@@ -599,14 +605,32 @@ class TableRenderer:
 
         # Auto-Fit 模式下，我们通过固定字号和比例来确保内边距的一致性
 
-        # Step 7: 保存图片
+        # 【关键步骤】强制渲染触发：在获取坐标前，必须调用 fig.canvas.draw()
+        # 迫使 Matplotlib 完成渲染，确保获取真实的 bbox 坐标
+        fig.canvas.draw()
+
+        # Step 7: 获取真实坐标布局信息
+        layout = self._extract_autofit_layout(table, fig, canvas_width, canvas_height)
+
+        # Step 8: 保存图片
         plt.savefig(
             output_path,
             format='png',
-            bbox_inches='tight',
+            bbox_inches=None,
             facecolor='white',
-            edgecolor='none'
+            edgecolor='none',
+            dpi=self.dpi
         )
+
+        # 根据参数决定是否自动裁剪
+        if autocrop:
+            cropped_layout = self._autocrop_image_and_update_layout(
+                output_path, layout, fig.canvas.get_renderer()
+            )
+            final_layout = cropped_layout
+        else:
+            final_layout = layout
+
         plt.close()
 
         print(f"🖼️ Auto-Fit 表格图片已生成: {output_path}")
@@ -614,44 +638,11 @@ class TableRenderer:
         print(f"   📏 列数: {len(data[0])}, 行数: {len(data)}")
         print(f"   🔤 固定字号: {self.AUTOFIT_FONT_SIZE}pt")
         print(f"   📦 固定内边距: {self.AUTOFIT_CELL_PADDING}inch")
+        if autocrop:
+            print(f"   ✅ 已自动裁剪白色边距")
 
-    def _autofit_calculate_column_widths(self, data: List[List[str]]) -> List[float]:
-        """
-        Bottom-Up 列宽计算：基于内容长度和最大字符限制
+        return final_layout
 
-        Args:
-            data: 表格数据
-
-        Returns:
-            List[float]: 每列的宽度比例
-        """
-        if not data or not data[0]:
-            return [1.0]
-
-        num_cols = len(data[0])
-        col_widths = []
-
-        for col_idx in range(num_cols):
-            # 计算该列的最大字符数
-            max_chars_in_col = 0
-            for row in data:
-                if col_idx < len(row):
-                    cell_length = len(str(row[col_idx]))
-                    # 考虑换行：如果超过最大字符数，按字符数换行
-                    wrapped_chars = min(cell_length, self.AUTOFIT_MAX_COLUMN_CHARS)
-                    max_chars_in_col = max(max_chars_in_col, wrapped_chars)
-
-            # 转换为英寸宽度
-            col_width_inch = max_chars_in_col * self.AUTOFIT_CHAR_WIDTH_FACTOR
-            col_widths.append(col_width_inch)
-
-        # 计算总宽度
-        total_width = sum(col_widths)
-        if total_width > 0:
-            # 转换为相对比例
-            col_widths = [w / total_width for w in col_widths]
-
-        return col_widths
 
     def _autofit_calculate_canvas_size(self, data: List[List[str]]) -> tuple[float, float]:
         """
@@ -689,7 +680,7 @@ class TableRenderer:
         # 模拟计算行高
         num_rows = len(data)
         # 基础行高：字体12pt + 上下内边距
-        base_row_height = 0.12 + 2 * self.AUTOFIT_CELL_PADDING  # 0.22inch
+        base_row_height = 0.17 + 2 * self.AUTOFIT_CELL_PADDING  # 0.22inch
         canvas_height = num_rows * base_row_height + 0.6  # 上下边距各0.3英寸
 
         # 应用最小尺寸限制，但允许大表格更大
@@ -716,7 +707,7 @@ class TableRenderer:
         col_absolute_widths = []
 
         # 每个格子的固定左右边距（英寸）
-        cell_fixed_padding = 0.1  # 每边0.05英寸，总共0.1英寸
+        cell_fixed_padding = 0.06  # 每边0.03英寸，总共0.06英寸
 
         for col_idx in range(num_cols):
             # 计算该列内容所需的最小宽度
@@ -741,6 +732,211 @@ class TableRenderer:
             col_relative_widths = [1.0 / num_cols] * num_cols
 
         return col_relative_widths
+
+    def _extract_autofit_layout(self, table, fig, canvas_width: float, canvas_height: float) -> dict:
+        """
+        从渲染后的表格中提取真实坐标布局信息
+        基于实际的 bbox 坐标，而不是理论计算
+
+        Args:
+            table: matplotlib 表格对象
+            fig: matplotlib 图表对象
+            canvas_width: 画布宽度（英寸）
+            canvas_height: 画布高度（英寸）
+
+        Returns:
+            dict: 真实坐标布局信息
+        """
+        # 获取图片总尺寸
+        image_width = int(canvas_width * self.dpi)
+        image_height = int(canvas_height * self.dpi)
+
+        # 初始化行和列信息
+        rows_info = []
+        columns_info = []
+
+        # 获取真实 Bbox 并处理行信息
+        row_heights = {}  # 记录每行的最大高度
+        row_y_positions = {}  # 记录每行的最小Y位置（最靠上的顶边）
+
+        # 遍历所有单元格获取真实 Bbox
+        for (row_idx, col_idx), cell in table.get_celld().items():
+            # 获取单元格的窗口范围（像素坐标）
+            bbox = cell.get_window_extent(renderer=fig.canvas.get_renderer())
+
+            # 转换坐标系：Matplotlib 原点在左下角，我们需要原点在左上角
+            layout_y = image_height - bbox.y1  # Top_Edge
+            layout_height = bbox.height
+
+            # 更新行信息：取该行所有单元格中 height 的最大值
+            if row_idx not in row_heights:
+                row_heights[row_idx] = layout_height
+            else:
+                row_heights[row_idx] = max(row_heights[row_idx], layout_height)
+
+            # 更新行Y位置：取该行所有单元格中 y 的最小值（即最靠上的顶边）
+            if row_idx not in row_y_positions:
+                row_y_positions[row_idx] = layout_y
+            else:
+                row_y_positions[row_idx] = min(row_y_positions[row_idx], layout_y)
+
+        # 生成行信息（按行号排序）
+        num_rows = len(row_heights)
+        for row_idx in range(num_rows):
+            rows_info.append({
+                "index": row_idx,
+                "y": row_y_positions[row_idx],
+                "height": row_heights[row_idx]
+            })
+
+        # 处理列信息
+        col_x_positions = {}
+        col_widths = {}
+
+        for (row_idx, col_idx), cell in table.get_celld().items():
+            if row_idx == 0:  # 只处理第一行的列信息
+                bbox = cell.get_window_extent(renderer=fig.canvas.get_renderer())
+                layout_x = bbox.x0  # X坐标不需要转换
+
+                # 更新列信息
+                if col_idx not in col_x_positions:
+                    col_x_positions[col_idx] = layout_x
+                    col_widths[col_idx] = bbox.width
+
+        # 生成列信息（按列索引排序）
+        num_columns = len(col_x_positions)
+        for col_idx in range(num_columns):
+            if col_idx in col_x_positions:
+                columns_info.append({
+                    "index": col_idx,
+                    "x": col_x_positions[col_idx],
+                    "width": col_widths[col_idx]
+                })
+
+        # 计算表格边界
+        if rows_info and columns_info:
+            min_x = min(col['x'] for col in columns_info)
+            max_x = max(col['x'] + col['width'] for col in columns_info)
+            min_y = min(row['y'] for row in rows_info)
+            max_y = max(row['y'] + row['height'] for row in rows_info)
+
+            table_bounds = {
+                "x": min_x,
+                "y": min_y,
+                "width": max_x - min_x,
+                "height": max_y - min_y
+            }
+        else:
+            table_bounds = {"x": 0, "y": 0, "width": 0, "height": 0}
+
+        return {
+            "rows": rows_info,
+            "columns": columns_info,
+            "image_size": {
+                "width": image_width,
+                "height": image_height
+            },
+            "table_bounds": table_bounds,
+            "metadata": {
+                "num_rows": num_rows,
+                "num_columns": num_columns,
+                "dpi": self.dpi,
+                "generated_at": pd.Timestamp.now().isoformat(),
+                "method": "autofit_real_bbox"
+            }
+        }
+
+    def _autocrop_image_and_update_layout(self, image_path: str, layout: dict, renderer) -> dict:
+        """
+        自动裁剪图片并更新布局坐标
+
+        Args:
+            image_path: 图片路径
+            layout: 原始布局信息
+            renderer: matplotlib 渲染器
+
+        Returns:
+            dict: 更新后的裁剪后布局信息
+        """
+        try:
+            import numpy as np
+            from PIL import Image
+
+            # 1. 读取图片并检测白色边距
+            with Image.open(image_path) as img:
+                # 转换为 numpy 数组以检测白色边距
+                img_array = np.array(img)
+
+                # 查找非白色区域的边界
+                # 检查 RGB 通道，只要有一个通道不是 255 就不是白色
+                if len(img_array.shape) == 3:
+                    # 彩色图片
+                    white_mask = np.all(img_array == 255, axis=2)
+                else:
+                    # 灰度图片
+                    white_mask = (img_array == 255)
+
+                # 找到非白色区域
+                coords = np.argwhere(~white_mask)
+
+                if len(coords) == 0:
+                    # 如果全是白色，返回原始布局
+                    return layout
+
+                # 获取裁剪边界
+                y_min, x_min = coords.min(axis=0)
+                y_max, x_max = coords.max(axis=0) + 1  # +1 因为是边界
+
+                # 2. 裁剪图片
+                cropped_img = img.crop((x_min, y_min, x_max, y_max))
+
+                # 3. 保存裁剪后的图片
+                cropped_img.save(image_path)
+
+                # 4. 计算裁剪偏移量
+                crop_offset_x = x_min
+                crop_offset_y = y_min
+
+                # 5. 更新布局坐标
+                updated_layout = layout.copy()
+
+                # 更新图片尺寸
+                updated_layout["image_size"] = {
+                    "width": cropped_img.width,
+                    "height": cropped_img.height
+                }
+
+                # 更新表格边界
+                original_bounds = layout["table_bounds"]
+                updated_layout["table_bounds"] = {
+                    "x": original_bounds["x"] - crop_offset_x,
+                    "y": original_bounds["y"] - crop_offset_y,
+                    "width": original_bounds["width"],
+                    "height": original_bounds["height"]
+                }
+
+                # 更新所有行的 Y 坐标
+                for row in updated_layout["rows"]:
+                    row["y"] = float(row["y"]) - crop_offset_y
+
+                # 更新所有列的 X 坐标
+                for col in updated_layout["columns"]:
+                    col["x"] = float(col["x"]) - crop_offset_x
+
+                # 更新 metadata
+                if "metadata" in updated_layout:
+                    updated_layout["metadata"]["cropped"] = True
+                    updated_layout["metadata"]["crop_offset"] = {
+                        "x": int(crop_offset_x),
+                        "y": int(crop_offset_y)
+                    }
+
+                return updated_layout
+
+        except Exception as e:
+            print(f"⚠️ 自动裁剪失败: {e}")
+            # 如果裁剪失败，返回原始布局
+            return layout
 
     def _get_autofit_font_size(self, data: List[List[str]]) -> int:
         """

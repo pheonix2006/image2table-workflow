@@ -67,27 +67,41 @@ def main():
             print(f"   答案: {answer}")
             print(f"   数据: {table_array_str}")
 
-            # 调用渲染器处理
-            result = renderer.render_wiki_table(
-                table_array_str=table_array_str,
-                question=question,
-                answer=answer,
-                output_dir=output_dir,
-                sample_id=i+1
-            )
-
-            # 生成布局文件（使用修复后的 _generate_table_layout 方法）
+            # 解析表格数据
             table_data = renderer.parse_csv_table_array(table_array_str)
-            layout = renderer._generate_table_layout(table_data)
+
+            # 使用 Auto-Fit 模式渲染图片（获取真实坐标布局）
+            image_path = os.path.join(output_dir, f"sample_{i+1}.png")
+            layout = renderer.render_image_autofit(table_data, image_path, autocrop=True)
 
             # 保存布局文件
             layout_path = os.path.join(output_dir, f"sample_{i+1}_layout.json")
             with open(layout_path, 'w', encoding='utf-8') as f:
                 json.dump(layout, f, ensure_ascii=False, indent=2)
 
-            print(f"   ✅ 图片: {result['image_path']}")
-            print(f"   ✅ 元数据: 包含问题、答案和 Markdown 内容")
-            print(f"   ✅ 布局: 使用真实Bbox测量的坐标信息")
+            # 生成元数据（兼容原有格式）
+            markdown_content = renderer.to_markdown(table_data)
+            metadata = {
+                "id": i+1,
+                "table_array": table_array_str,
+                "question": question,
+                "answer": answer,
+                "markdown_content": markdown_content,
+                "image_path": image_path,
+                "num_rows": len(table_data),
+                "num_columns": len(table_data[0]) if table_data else 0,
+                "render_method": "autofit",
+                "layout_path": layout_path
+            }
+
+            # 保存元数据文件
+            metadata_path = os.path.join(output_dir, f"sample_{i+1}.json")
+            with open(metadata_path, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, ensure_ascii=False, indent=2)
+
+            print(f"   ✅ 图片: {image_path} (Auto-Fit 模式)")
+            print(f"   ✅ 元数据: {metadata_path}")
+            print(f"   ✅ 布局: {layout_path} (Auto-Fit 兼容坐标)")
 
             success_count += 1
 
